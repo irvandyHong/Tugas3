@@ -2,22 +2,27 @@ package main
 
 import (
 	"crypto/rand"
-	"fmt"
+	"encoding/json"
 	"html/template"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 )
 
-var tmplString = `    // content of index.html
-    {{define "index"}}
-    {{.var1}} is equal to {{.var2}}
-    {{end}}`
-var i int
+var PORT = ":8080"
+
+type Data struct {
+	Wind  int `json:"wind"`
+	Water int `json:"water"`
+}
+
+var refreshed int
 
 func main() {
-	i = 0
+	refreshed = 0
 	http.HandleFunc("/", outputHandler)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(PORT, nil)
+	//updateJson(10, 10)
 }
 
 func outputHTML(w http.ResponseWriter, filename string, data interface{}) {
@@ -32,15 +37,29 @@ func outputHTML(w http.ResponseWriter, filename string, data interface{}) {
 	}
 }
 func outputHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("refreshed : ", i)
-	i++
-	// do whatever you need to do
+	refreshed++
 	wind := genRandNum(0, 100)
 	water := genRandNum(0, 100)
-	myvar := map[string]interface{}{"MyVar": wind, "MyVar2": water}
-	outputHTML(w, "index.html", myvar)
-}
+	if refreshed%2 != 0 {
+		updateJson(int(water), int(wind))
+		myvar := map[string]interface{}{"MyVar": wind, "wind": windStatus(int(wind)), "MyVar2": water, "water": waterStatus(int(water))}
+		outputHTML(w, "index.html", myvar)
+	}
 
+}
+func updateJson(water, wind int) {
+	tmp := Data{
+		Wind:  wind,
+		Water: water,
+	}
+	file, err := json.Marshal(tmp)
+	if err != nil {
+		panic(err)
+	}
+	_ = ioutil.WriteFile("data.json", file, 0644)
+	// tmp := `{"wind":wind,"water":water}`
+	// jsonData := []byte(tmp)
+}
 func genRandNum(min, max int64) int64 {
 	// calculate the max we will be using
 	bg := big.NewInt(max - min)
@@ -54,4 +73,22 @@ func genRandNum(min, max int64) int64 {
 
 	// add n to min to support the passed in range
 	return n.Int64() + min
+}
+func windStatus(tmp int) string {
+	if tmp <= 6 {
+		return "aman"
+	} else if tmp >= 7 && tmp <= 15 {
+		return "siaga"
+	} else {
+		return "bahaya"
+	}
+}
+func waterStatus(tmp int) string {
+	if tmp <= 5 {
+		return "aman"
+	} else if tmp >= 6 && tmp <= 8 {
+		return "siaga"
+	} else {
+		return "bahaya"
+	}
 }
